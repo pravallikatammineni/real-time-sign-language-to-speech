@@ -2,9 +2,15 @@ import cv2
 import mediapipe as mp
 import joblib
 import numpy as np
+import pyttsx3
 
-# Load trained model
+# Load model
 model = joblib.load("model/gesture_model.pkl")
+
+# Initialize speech engine
+engine = pyttsx3.init()
+
+last_prediction = ""
 
 mp_hands = mp.solutions.hands
 hands = mp_hands.Hands(
@@ -48,6 +54,12 @@ while True:
                 hand_landmarks,
                 mp_hands.HAND_CONNECTIONS
             )
+
+    # 🔊 Speak only if gesture changes
+    if prediction != "" and prediction != last_prediction:
+        engine.say(prediction)
+        engine.runAndWait()
+        last_prediction = prediction
 
     # Display prediction
     cv2.putText(frame, f'Gesture: {prediction}', (10, 50),
