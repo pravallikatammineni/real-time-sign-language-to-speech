@@ -1,6 +1,7 @@
 """
 Text-to-Speech Module
-Provides utilities for converting text to speech
+Speaks text out loud using the system's built-in TTS engine.
+Works offline, no fancy cloud API needed.
 """
 
 import pyttsx3
@@ -8,15 +9,20 @@ import pyttsx3
 
 class TextToSpeech:
     """
-    Converts text to speech using pyttsx3 engine.
+    Converts text to speech using pyttsx3 (offline TTS engine).
+    
+    Wraps pyttsx3 to give you a simpler interface and prevents
+    saying the same thing over and over again.
     """
 
     def __init__(self, rate=150):
         """
-        Initialize the TTS engine.
+        Set up the TTS engine.
         
         Args:
-            rate: Speech rate (words per minute)
+            rate: How fast to talk (words per minute).
+                  150 is normal speed, 200 is fast, 100 is slow.
+                  Experiment to find what sounds natural to you.
         """
         self.engine = pyttsx3.init()
         self.engine.setProperty('rate', rate)
@@ -24,10 +30,13 @@ class TextToSpeech:
 
     def speak(self, text):
         """
-        Convert text to speech and play it.
+        Say the text out loud (if it's different from last time).
+        
+        This is smart: if you ask it to speak "A" ten times in a row,
+        it only speaks once. Good for preventing annoying repetition.
         
         Args:
-            text: Text to be spoken
+            text: What to say
         """
         if text and text != self.last_spoken_text:
             self.engine.say(text)
@@ -36,10 +45,12 @@ class TextToSpeech:
 
     def speak_forced(self, text):
         """
-        Convert text to speech and play it (even if repeated).
+        Say it regardless of what was just said.
+        
+        Use this if you want to speak the same text multiple times in a row.
         
         Args:
-            text: Text to be spoken
+            text: What to say
         """
         if text:
             self.engine.say(text)
@@ -48,37 +59,41 @@ class TextToSpeech:
 
     def set_rate(self, rate):
         """
-        Set the speech rate.
+        Change how fast the speech is.
         
         Args:
-            rate: Words per minute
+            rate: Words per minute (150 = normal)
         """
         self.engine.setProperty('rate', rate)
 
     def set_volume(self, volume):
         """
-        Set the volume (0.0 to 1.0).
+        Make it louder or quieter.
         
         Args:
-            volume: Volume level
+            volume: 0.0 (silent) to 1.0 (maximum volume)
         """
         self.engine.setProperty('volume', volume)
 
     def get_voices(self):
         """
-        Get available voices.
+        See what voices are available on this system.
+        
+        Different systems have different voices. Might have male/female options.
         
         Returns:
-            list: Available voice objects
+            list: Voice objects you can use with set_voice()
         """
         return self.engine.getProperty('voices')
 
     def set_voice(self, voice_id):
         """
-        Set the voice.
+        Pick a different voice.
+        
+        Get available voices from get_voices() first.
         
         Args:
-            voice_id: Voice ID from available voices
+            voice_id: ID of the voice to use
         """
         self.engine.setProperty('voice', voice_id)
 
