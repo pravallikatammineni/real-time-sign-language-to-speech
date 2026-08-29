@@ -1,19 +1,36 @@
 import cv2
 import mediapipe as mp
 import pandas as pd
+import sys
+
+try:
+    # Import MediaPipe solutions
+    from mediapipe import solutions
+    from mediapipe.framework.formats import landmark_pb2
+    mp_hands = solutions.hands
+    mp_draw = solutions.drawing_utils
+except ImportError as e:
+    print(f"Error importing MediaPipe: {e}")
+    print("Please run: pip install mediapipe --upgrade")
+    sys.exit(1)
 
 dataset = []
 
-mp_hands = mp.solutions.hands
-hands = mp_hands.Hands(
-    static_image_mode=False,
-    max_num_hands=1,
-    min_detection_confidence=0.7
-)
+try:
+    hands = mp_hands.Hands(
+        static_image_mode=False,
+        max_num_hands=1,
+        min_detection_confidence=0.7
+    )
+except Exception as e:
+    print(f"Error initializing hand detector: {e}")
+    sys.exit(1)
 
-mp_draw = mp.solutions.drawing_utils
-
+# Open camera
 cap = cv2.VideoCapture(0)
+if not cap.isOpened():
+    print("Error: Could not open camera. Check if camera is connected.")
+    sys.exit(1)
 
 print("Press A/B/C to record gesture")
 print("Press S to save dataset")

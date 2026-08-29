@@ -3,25 +3,55 @@ import mediapipe as mp
 import joblib
 import numpy as np
 import pyttsx3
+import sys
+import os
 
-# Load model
-model = joblib.load("model/gesture_model.pkl")
+# Check if model exists
+if not os.path.exists("model/gesture_model.pkl"):
+    print("Error: Model not found. Please run train_model.py first.")
+    sys.exit(1)
 
-# Initialize speech engine
-engine = pyttsx3.init()
+try:
+    # Load model
+    model = joblib.load("model/gesture_model.pkl")
+except Exception as e:
+    print(f"Error loading model: {e}")
+    sys.exit(1)
+
+try:
+    # Initialize speech engine
+    engine = pyttsx3.init()
+except Exception as e:
+    print(f"Error initializing text-to-speech: {e}")
+    sys.exit(1)
 
 last_prediction = ""
 
-mp_hands = mp.solutions.hands
-hands = mp_hands.Hands(
-    static_image_mode=False,
-    max_num_hands=1,
-    min_detection_confidence=0.7
-)
+try:
+    # Import MediaPipe solutions
+    from mediapipe import solutions
+    mp_hands = solutions.hands
+    mp_draw = solutions.drawing_utils
+except ImportError as e:
+    print(f"Error importing MediaPipe: {e}")
+    print("Please run: pip install mediapipe --upgrade")
+    sys.exit(1)
 
-mp_draw = mp.solutions.drawing_utils
+try:
+    hands = mp_hands.Hands(
+        static_image_mode=False,
+        max_num_hands=1,
+        min_detection_confidence=0.7
+    )
+except Exception as e:
+    print(f"Error initializing hand detector: {e}")
+    sys.exit(1)
 
+# Open camera
 cap = cv2.VideoCapture(0)
+if not cap.isOpened():
+    print("Error: Could not open camera. Check if camera is connected.")
+    sys.exit(1)
 
 while True:
     ret, frame = cap.read()
