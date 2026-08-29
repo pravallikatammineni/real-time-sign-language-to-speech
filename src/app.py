@@ -1,39 +1,56 @@
 import cv2
-import mediapipe as mp
-import pandas as pd
-import sys
+import numpy as np
 
-try:
-    # Import MediaPipe solutions
-    from mediapipe import solutions
-    from mediapipe.framework.formats import landmark_pb2
-    mp_hands = solutions.hands
-    mp_draw = solutions.drawing_utils
-except ImportError as e:
-    print(f"Error importing MediaPipe: {e}")
-    print("Please run: pip install mediapipe --upgrade")
-    sys.exit(1)
+# Simple webcam gesture app
+# This version is easy to understand and keeps the project small.
 
-dataset = []
-
-try:
-    hands = mp_hands.Hands(
-        static_image_mode=False,
-        max_num_hands=1,
-        min_detection_confidence=0.7
-    )
-except Exception as e:
-    print(f"Error initializing hand detector: {e}")
-    sys.exit(1)
-
-# Open camera
 cap = cv2.VideoCapture(0)
 if not cap.isOpened():
-    print("Error: Could not open camera. Check if camera is connected.")
-    sys.exit(1)
+    print("Camera not found. Please connect a webcam and run the app again.")
+    raise SystemExit
 
-print("Press A/B/C to record gesture")
-print("Press S to save dataset")
+lower_skin = np.array([0, 30, 60], dtype=np.uint8)
+upper_skin = np.array([25, 173, 255], dtype=np.uint8)
+kernel = np.ones((5, 5), np.uint8)
+
+
+def detect_gesture(mask):
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours:
+        return "No hand"
+
+    contour = max(contours, key=cv2.contourArea)
+    area = cv2.contourArea(contour)
+    if area < 2000:
+        return "No hand"
+
+    hull = cv2.convexHull(contour, returnPoints=False)
+    if len(hull) < 5:
+        return "FIST"
+
+    defects = cv2.convexityDefects(contour, hull)
+    fingers = 0
+
+    if defects is not None:
+        for i in range(defects.shape[0]):
+            s, e, f, d = defects[i, 0]
+            start = tuple(contour[s][0])
+            end = tuple(contour[e][0])
+            far = tuple(contour[f][0])
+
+            if d > 12000:
+                fingers += 1
+
+    if fingers >= 3:
+        return "OPEN HAND"
+    if fingers == 2:
+        return "PEACE"
+    if fingers == 1:
+        return "ONE FINGER"
+    return "FIST"
+
+
+print("Simple Hand Gesture App")
 print("Press Q to quit")
 
 while True:
@@ -41,50 +58,26 @@ while True:
     if not ret:
         break
 
-    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    results = hands.process(rgb_frame)
+    frame = cv2.flip(frame, 1)
+    roi = frame[60:420, 60:420]
 
-    landmark_list = []
+    hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsv, lower_skin, upper_skin)
+    mask = cv2.GaussianBlur(mask, (9, 9), 0)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
 
-    if results.multi_hand_landmarks:
-        for hand_landmarks in results.multi_hand_landmarks:
+    gesture = detect_gesture(mask)
 
-            wrist = hand_landmarks.landmark[0]
+    cv2.rectangle(frame, (60, 60), (420, 420), (0, 255, 0), 2)
+    cv2.putText(frame, gesture, (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+    cv2.putText(frame, "Press Q to quit", (20, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
 
-            for lm in hand_landmarks.landmark:
-                landmark_list.append(lm.x - wrist.x)
-                landmark_list.append(lm.y - wrist.y)
-                landmark_list.append(lm.z - wrist.z)
+    cv2.imshow("Hand Gesture Recognition", frame)
 
-            mp_draw.draw_landmarks(
-                frame,
-                hand_landmarks,
-                mp_hands.HAND_CONNECTIONS
-            )
-
-    cv2.imshow("Hand Detection", frame)
-
-    key = cv2.waitKey(1) & 0xFF
-
-    if key == ord('a') and len(landmark_list) == 63:
-        dataset.append(landmark_list + ["A"])
-        print("Recorded A")
-
-    if key == ord('b') and len(landmark_list) == 63:
-        dataset.append(landmark_list + ["B"])
-        print("Recorded B")
-
-    if key == ord('c') and len(landmark_list) == 63:
-        dataset.append(landmark_list + ["C"])
-        print("Recorded C")
-
-    if key == ord('s'):
-        df = pd.DataFrame(dataset)
-        df.to_csv("data/gesture_dataset.csv", index=False)
-        print("Dataset saved!")
-
-    if key == ord('q'):
+    if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
 cap.release()
 cv2.destroyAllWindows()
+print("App closed")
